@@ -9,9 +9,9 @@ package cmd
 import (
 	"fmt"
 
-	"chain4travel.com/kopernikus/pkg"
-	"chain4travel.com/kopernikus/pkg/version1"
-	"chain4travel.com/kopernikus/pkg/version1/k8s"
+	"chain4travel.com/grungni/pkg"
+	"chain4travel.com/grungni/pkg/version1"
+	"chain4travel.com/grungni/pkg/version1/k8s"
 	"github.com/spf13/cobra"
 )
 

@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	"chain4travel.com/kopernikus/pkg/version1"
+	"chain4travel.com/grungni/pkg/version1"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +21,6 @@ func init() {
 
 	generateCmd.Flags().Uint64("num-stakers", 20, "number of stakers total")
 	generateCmd.Flags().Uint64("num-initial-stakers", 1, "number of initial stakers")
-	generateCmd.Flags().Uint64("network-id", 12345, "network id")
 	generateCmd.Flags().Uint64("default-stake", 2e5, "initial stake for each validator")
 	generateCmd.Flags().Bool("override", false, "overwrite and delete existing data")
 
@@ -34,17 +33,18 @@ var generateCmd = &cobra.Command{
 	Short: "generates a network with the specified config",
 	Long:  `The generation `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		netorkName, err := cmd.Flags().GetString("network-name")
-		if err != nil {
-			return err
+		if len(args) < 1 {
+			return fmt.Errorf("insufficient arguments")
 		}
+
+		networkName := args[0]
 
 		override, err := cmd.Flags().GetBool("override")
 		if err != nil {
 			return err
 		}
 
-		networkPath := fmt.Sprintf("%s.json", netorkName)
+		networkPath := fmt.Sprintf("%s.json", networkName)
 		_, err = os.Stat(networkPath)
 		if err == nil && !override {
 			return fmt.Errorf("will not override existing data without --overide flag")

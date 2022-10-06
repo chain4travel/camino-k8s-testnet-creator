@@ -7,7 +7,7 @@
 package main
 
 import (
-	"chain4travel.com/kopernikus/cmd"
+	"chain4travel.com/grungni/cmd"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 

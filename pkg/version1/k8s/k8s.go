@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"chain4travel.com/kopernikus/pkg/version1"
+	"chain4travel.com/grungni/pkg/version1"
 	"github.com/chain4travel/caminogo/genesis"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
