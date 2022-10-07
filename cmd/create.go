@@ -9,9 +9,9 @@ package cmd
 import (
 	"fmt"
 
-	"chain4travel.com/grungni/pkg"
-	"chain4travel.com/grungni/pkg/version1"
-	"chain4travel.com/grungni/pkg/version1/k8s"
+	"chain4travel.com/camktncr/pkg"
+	"chain4travel.com/camktncr/pkg/version1"
+	"chain4travel.com/camktncr/pkg/version1/k8s"
 	"github.com/spf13/cobra"
 )
 
@@ -20,18 +20,17 @@ func init() {
 	createCmd.Flags().Uint64("api-nodes", 2, "number of api-nodes")
 	createCmd.Flags().Uint64("validators", 5, "number of validators to create (cannot be higher than the initial generated number)")
 	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
+	createCmd.Flags().String("domain", "kopernikus.camino.foundation", "under which domain to publish the network api nodes")
 
 }
 
 var createCmd = &cobra.Command{
-	Use:   "create",
+	Use:   "create <network-name>",
 	Short: "creates the k8s configuration and lauches the network",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		netorkName, err := cmd.Flags().GetString("network-name")
-		if err != nil {
-			return err
-		}
+		networkName := args[0]
 
 		kubeconfig, err := cmd.Flags().GetString("kubeconfig")
 		if err != nil {
@@ -43,14 +42,19 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
+		domain, err := cmd.Flags().GetString("domain")
+		if err != nil {
+			return err
+		}
+
 		k8sConfig := version1.K8sConfig{
-			K8sPrefix: netorkName,
-			Namespace: netorkName,
+			K8sPrefix: networkName,
+			Namespace: networkName,
 			Labels: map[string]string{
-				"network": netorkName,
+				"network": networkName,
 			},
 			Image:  image,
-			Domain: "kopernikus.camino.foundation",
+			Domain: domain,
 		}
 
 		numValidators, err := cmd.Flags().GetUint64("validators")
@@ -68,12 +72,19 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
-		network, err := version1.LoadNetwork(fmt.Sprintf("%s.json", netorkName))
+		network, err := version1.LoadNetwork(fmt.Sprintf("%s.json", networkName))
 		if err != nil {
 			return err
 		}
-		if int(numValidators) > len(network.Stakers)-1 {
-			return fmt.Errorf("network does not contain enought stakers %d > %d", numValidators, len(network.Stakers)-1)
+
+		numInitialStakers := len(network.GenesisConfig.InitialStakers)
+
+		if int(numValidators) < numInitialStakers {
+			return fmt.Errorf("network needs at least all initial stakers to be started: %d < %d", numValidators, numInitialStakers)
+		}
+
+		if int(numValidators) > len(network.Stakers) {
+			return fmt.Errorf("network config '%s' does not contain enough validators: %d > %d", networkName, numValidators, len(network.Stakers))
 		}
 
 		err = k8s.CreateNamespace(cmd.Context(), k, k8sConfig)
@@ -125,7 +136,7 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
-		err = k8s.RegisterValidators(cmd.Context(), kRest, k8sConfig, network.Stakers[1:numValidators])
+		err = k8s.RegisterValidators(cmd.Context(), kRest, k8sConfig, network.Stakers[numInitialStakers:numValidators])
 		if err != nil {
 			return err
 		}

@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-var rootCmd = &cobra.Command{Use: "grungi", SilenceUsage: true}
+var rootCmd = &cobra.Command{Use: "camktncr", SilenceUsage: true}
 var k8sCmd = &cobra.Command{Use: "k8s"}
 
 func init() {
@@ -25,9 +25,6 @@ func init() {
 	} else {
 		k8sCmd.PersistentFlags().String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
-
-	rootCmd.PersistentFlags().String("network-name", "", "where to write all the data")
-	rootCmd.MarkFlagRequired("network-name")
 
 	rootCmd.AddCommand(k8sCmd)
 	rootCmd.AddCommand(generateCmd)

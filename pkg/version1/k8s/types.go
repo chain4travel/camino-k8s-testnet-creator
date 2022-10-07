@@ -7,7 +7,7 @@
 package k8s
 
 import (
-	"chain4travel.com/grungni/pkg/version1"
+	"chain4travel.com/camktncr/pkg/version1"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	"chain4travel.com/grungni/pkg/version1"
+	"chain4travel.com/camktncr/pkg/version1"
 	"github.com/spf13/cobra"
 )
 
@@ -29,13 +29,10 @@ func init() {
 const DENOMINATION = 1e9
 
 var generateCmd = &cobra.Command{
-	Use:   "generate",
+	Use:   "generate <network-name>",
 	Short: "generates a network with the specified config",
-	Long:  `The generation `,
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return fmt.Errorf("insufficient arguments")
-		}
 
 		networkName := args[0]
 
@@ -58,10 +55,6 @@ var generateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		netowrkId, err := cmd.Flags().GetUint64("network-id")
-		if err != nil {
-			return err
-		}
 		numInitialStakers, err := cmd.Flags().GetUint64("num-initial-stakers")
 		if err != nil {
 			return err
@@ -69,7 +62,7 @@ var generateCmd = &cobra.Command{
 
 		networkConfig := version1.NetworkConfig{
 			NumStakers:        numStakers,
-			NetworkID:         netowrkId,
+			NetworkID:         12345,
 			NetworkName:       "custom",
 			DefaultStake:      defaultStake * DENOMINATION,
 			NumInitialStakers: numInitialStakers,

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"chain4travel.com/grungni/pkg/version1"
+	"chain4travel.com/camktncr/pkg/version1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -100,7 +100,7 @@ func createStatefulSetWithOptions(ctx context.Context, clientset *kubernetes.Cli
 				continue
 			}
 
-			if sts.Status.AvailableReplicas == options.Replicas {
+			if sts.Status.AvailableReplicas == options.Replicas && sts.Status.UpdatedReplicas == options.Replicas {
 				watch.Stop()
 			}
 

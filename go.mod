@@ -1,4 +1,4 @@
-module chain4travel.com/grungni
+module chain4travel.com/camktncr
 
 go 1.19
 

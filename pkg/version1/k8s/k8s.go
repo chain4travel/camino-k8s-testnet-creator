@@ -22,7 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"chain4travel.com/grungni/pkg/version1"
+	"log"
+
+	"chain4travel.com/camktncr/pkg/version1"
 	"github.com/chain4travel/caminogo/genesis"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -39,7 +41,7 @@ import (
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-const FIELD_MANAGER_STRING = "grungni-test-net-creator"
+const FIELD_MANAGER_STRING = "camktncr-test-net-creator"
 
 func RegisterValidators(ctx context.Context, restClient *rest.Config, k8sConfig version1.K8sConfig, stakers []version1.Staker) error {
 	roundTripper, upgrader, err := spdy.RoundTripperFor(restClient)
@@ -79,9 +81,13 @@ func RegisterValidators(ctx context.Context, restClient *rest.Config, k8sConfig 
 	time.Sleep(1 * time.Second)
 	defer close(stopChan)
 
-	err = isBootstrapped()
-	if err != nil {
-		return err
+	for {
+		err := isBootstrapped()
+		if err != nil {
+			log.Println("root has not bootstrapped yet")
+		} else {
+			break
+		}
 	}
 
 	for _, staker := range stakers {
@@ -95,31 +101,6 @@ func RegisterValidators(ctx context.Context, restClient *rest.Config, k8sConfig 
 }
 
 func registerValidator(staker version1.Staker) error {
-
-	// func buildTemplateStakers(staker []Staker, networkConfig NetworkConfig, k8sConfig K8sConfig, now int64) []stakerTemplate {
-	// 	tmp := make([]stakerTemplate, len(staker))
-
-	// 	stakeDur, err := time.ParseDuration("24h")
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-
-	// 	for i, s := range staker {
-	// 		pw := make([]byte, 20)
-	// 		rand.Read(pw)
-	// 		tmp[i] = stakerTemplate{
-	// 			Staker:      s,
-	// 			StakeTime:   uint64(stakeDur.Seconds() * 30),
-	// 			Username:    fmt.Sprintf("%s-%d", k8sConfig.K8sPrefix, i+int(networkConfig.NumInitialStakers)),
-	// 			Password:    hex.EncodeToString(pw),
-	// 			StakeAmount: networkConfig.DefaultStake,
-	// 			Address:     fmt.Sprintf("P-%s", strings.Split(s.PublicAddress, "-")[1]),
-	// 		}
-	// 	}
-
-	// 	return tmp
-	// }
-
 	day, err := time.ParseDuration("24h")
 	if err != nil {
 		return err
