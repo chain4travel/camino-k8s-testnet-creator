@@ -20,7 +20,7 @@ import (
 func init() {
 
 	generateCmd.Flags().Uint64("num-stakers", 20, "number of stakers total")
-	generateCmd.Flags().Uint64("num-initial-stakers", 1, "number of initial stakers")
+	generateCmd.Flags().Uint64("num-initial-stakers", 5, "number of initial stakers")
 	generateCmd.Flags().Uint64("default-stake", 2e5, "initial stake for each validator")
 	generateCmd.Flags().Bool("override", false, "overwrite and delete existing data")
 
