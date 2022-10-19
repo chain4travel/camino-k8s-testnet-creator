@@ -197,6 +197,9 @@ func buildContainer(options stateFullSetOptions) corev1.Container {
 	container := corev1.Container{
 		Name:  "camino-node",
 		Image: options.Image,
+		Resources: corev1.ResourceRequirements{
+			Requests: options.Requests,
+		},
 		Env: []corev1.EnvVar{
 			{
 				Name: "ROOT_NODE_ID",

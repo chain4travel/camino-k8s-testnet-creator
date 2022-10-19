@@ -249,7 +249,7 @@ func CreateNamespace(ctx context.Context, clientset *kubernetes.Clientset, k8sCo
 
 func CreateNetworkConfigMap(ctx context.Context, clientset *kubernetes.Clientset, genesisConfig genesis.UnparsedConfig, k8sConfig version1.K8sConfig) error {
 
-	genesisJson, err := json.MarshalIndent(genesisConfig, "", "\t")
+	genesisJson, err := json.Marshal(genesisConfig)
 	if err != nil {
 		return err
 	}
@@ -363,6 +363,23 @@ func CreateStakerSecrets(ctx context.Context, clientset *kubernetes.Clientset, s
 	}
 
 	return nil
+}
+
+func CopyPullSecret(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig) error {
+
+	secret, err := clientset.CoreV1().Secrets("kopernikus").Get(ctx, "gcr-image-pull", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	secret.Labels = k8sConfig.Labels
+	secret.Namespace = k8sConfig.Namespace
+	secret.ResourceVersion = ""
+	_, err = clientset.CoreV1().Secrets(k8sConfig.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if k8sErrors.IsAlreadyExists(err) {
+		return nil
+	}
+	return err
+
 }
 
 func CreateRBAC(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig) error {
@@ -482,6 +499,7 @@ func CreateApiNodes(ctx context.Context, clientset *kubernetes.Clientset, k8sCon
 		IsValidator: false,
 		IsRoot:      false,
 		Replicas:    numberOfNodes,
+		Requests:    k8sConfig.Resources.Api,
 	}
 
 	return createStatefulSetWithOptions(ctx, clientset, options)
@@ -495,6 +513,7 @@ func CreateRootNode(ctx context.Context, clientset *kubernetes.Clientset, k8sCon
 		IsValidator: true,
 		IsRoot:      true,
 		Replicas:    1,
+		Requests:    k8sConfig.Resources.Validator,
 	}
 
 	return createStatefulSetWithOptions(ctx, clientset, options)
@@ -508,6 +527,7 @@ func CreateValidators(ctx context.Context, clientset *kubernetes.Clientset, k8sC
 		IsValidator: true,
 		IsRoot:      false,
 		Replicas:    numberOfNodes,
+		Requests:    k8sConfig.Resources.Validator,
 	}
 
 	return createStatefulSetWithOptions(ctx, clientset, options)
@@ -585,6 +605,73 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 	} else { //TODO CHECK FOR ACTUAL NOT FOUND ERROR
 		_, err := ingClient.Create(ctx, &ingress, metav1.CreateOptions{
 			FieldManager: FIELD_MANAGER_STRING,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, keepDisks bool) error {
+
+	sel, err := k8sConfig.Selector()
+	if err != nil {
+		return err
+	}
+
+	err = clientset.AppsV1().StatefulSets(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: sel,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, sts := range []string{"api", "root", "validator"} {
+
+		err = clientset.CoreV1().Services(k8sConfig.Namespace).Delete(ctx, k8sConfig.PrefixWith(sts), *metav1.NewDeleteOptions(0))
+		if err != nil {
+			return err
+		}
+	}
+
+	err = clientset.CoreV1().ConfigMaps(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: sel,
+	})
+	if err != nil {
+		return err
+	}
+	err = clientset.CoreV1().Secrets(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: sel,
+	})
+	if err != nil {
+		return err
+	}
+	err = clientset.CoreV1().ServiceAccounts(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: sel,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = clientset.RbacV1().RoleBindings(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: sel,
+	})
+	if err != nil {
+		return err
+	}
+	err = clientset.RbacV1().Roles(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: sel,
+	})
+	if err != nil {
+		return err
+	}
+
+	if !keepDisks {
+
+		err = clientset.CoreV1().PersistentVolumeClaims(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+			LabelSelector: sel,
 		})
 		if err != nil {
 			return err

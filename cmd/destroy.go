@@ -7,12 +7,9 @@
 package cmd
 
 import (
-	"fmt"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
-
 	"chain4travel.com/camktncr/pkg"
+	"chain4travel.com/camktncr/pkg/version1"
+	"chain4travel.com/camktncr/pkg/version1/k8s"
 
 	"github.com/spf13/cobra"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,27 +32,16 @@ var destroyCmd = &cobra.Command{
 			return err
 		}
 
-		err = k.CoreV1().Namespaces().Delete(cmd.Context(), networkName, *metav1.NewDeleteOptions(0))
-		if err != nil && !k8sErrors.IsNotFound(err) {
-			return err
+		k8sConfig := version1.K8sConfig{
+			K8sPrefix: networkName,
+			Namespace: networkName,
+			Labels: map[string]string{
+				"network": networkName,
+			},
 		}
 
-		_, err = k.CoreV1().Namespaces().Get(cmd.Context(), networkName, metav1.GetOptions{})
-		if err == nil {
-			w, err := k.CoreV1().Namespaces().Watch(cmd.Context(), metav1.SingleObject(metav1.ObjectMeta{Name: networkName}))
-			if err != nil {
-				return err
-			}
-
-			for event := range w.ResultChan() {
-				if event.Type == watch.Deleted {
-					w.Stop()
-				}
-
-				fmt.Printf("waiting for %s to be deleted\n", networkName)
-
-			}
-		} else if !k8sErrors.IsNotFound(err) {
+		err = k8s.DeleteCluster(cmd.Context(), k, k8sConfig, false)
+		if err != nil && !k8sErrors.IsNotFound(err) {
 			return err
 		}
 

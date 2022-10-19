@@ -8,6 +8,7 @@ package k8s
 
 import (
 	"chain4travel.com/camktncr/pkg/version1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -20,6 +21,7 @@ type stateFullSetOptions struct {
 	IsValidator bool
 	IsRoot      bool
 	Replicas    int32
+	Requests    corev1.ResourceList
 }
 
 func (s stateFullSetOptions) Name() string {

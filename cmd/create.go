@@ -13,12 +13,18 @@ import (
 	"chain4travel.com/camktncr/pkg/version1"
 	"chain4travel.com/camktncr/pkg/version1/k8s"
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func init() {
 
 	createCmd.Flags().Uint64("api-nodes", 2, "number of api-nodes")
 	createCmd.Flags().Uint64("validators", 5, "number of validators to create (cannot be higher than the initial generated number)")
+	createCmd.Flags().String("validator-ram", "1Gi", "ram of the validators")
+	createCmd.Flags().String("validator-cpu", "1000m", "cpu of the validators")
+	createCmd.Flags().String("api-nodes-ram", "1Gi", "ram of the api-nodes")
+	createCmd.Flags().String("api-nodes-cpu", "1000m", "cpu of the api-nodes")
 	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
 	createCmd.Flags().String("domain", "kopernikus.camino.foundation", "under which domain to publish the network api nodes")
 
@@ -47,6 +53,22 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
+		validatorCpu, err := cmd.Flags().GetString("validator-cpu")
+		if err != nil {
+			return err
+		}
+		validatorRam, err := cmd.Flags().GetString("validator-ram")
+		if err != nil {
+			return err
+		}
+		apiCpu, err := cmd.Flags().GetString("api-nodes-cpu")
+		if err != nil {
+			return err
+		}
+		apiRam, err := cmd.Flags().GetString("api-nodes-ram")
+		if err != nil {
+			return err
+		}
 		k8sConfig := version1.K8sConfig{
 			K8sPrefix: networkName,
 			Namespace: networkName,
@@ -55,6 +77,16 @@ var createCmd = &cobra.Command{
 			},
 			Image:  image,
 			Domain: domain,
+			Resources: version1.K8sResources{
+				Api: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse(apiCpu),
+					v1.ResourceMemory: resource.MustParse(apiRam),
+				},
+				Validator: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse(validatorCpu),
+					v1.ResourceMemory: resource.MustParse(validatorRam),
+				},
+			},
 		}
 
 		numValidators, err := cmd.Flags().GetUint64("validators")
@@ -92,6 +124,10 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
+		err = k8s.CopyPullSecret(cmd.Context(), k, k8sConfig)
+		if err != nil {
+			return err
+		}
 		err = k8s.CreateRBAC(cmd.Context(), k, k8sConfig)
 		if err != nil {
 			return err
