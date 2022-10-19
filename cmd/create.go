@@ -25,7 +25,7 @@ func init() {
 	createCmd.Flags().String("validator-cpu", "1000m", "cpu of the validators")
 	createCmd.Flags().String("api-nodes-ram", "1Gi", "ram of the api-nodes")
 	createCmd.Flags().String("api-nodes-cpu", "1000m", "cpu of the api-nodes")
-	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
+	createCmd.Flags().String("image", "europe-west3-docker.pkg.dev/pwk-c4t-dev/internal-camino-dev/camino-node:unstable-fix-genesis-block-and-node-id-3280676469", "docker image to run the nodes")
 	createCmd.Flags().String("domain", "kopernikus.camino.foundation", "under which domain to publish the network api nodes")
 
 }

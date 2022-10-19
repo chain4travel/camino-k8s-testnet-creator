@@ -95,6 +95,7 @@ func RegisterValidators(ctx context.Context, restClient *rest.Config, k8sConfig 
 		if err != nil {
 			return err
 		}
+		time.Sleep(5 * time.Second)
 	}
 
 	return nil
