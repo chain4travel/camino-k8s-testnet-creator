@@ -7,6 +7,7 @@
 package version1
 
 import (
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,6 +20,7 @@ import (
 	"github.com/chain4travel/caminogo/staking"
 	"github.com/chain4travel/caminogo/utils/crypto"
 	"github.com/chain4travel/caminogo/utils/formatting"
+	"github.com/chain4travel/caminogo/utils/nodeid"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -91,7 +93,13 @@ func createStakers(config NetworkConfig) []Staker {
 			log.Fatal(err)
 		}
 
-		pk, err := factory.NewPrivateKey()
+		rsaKey, ok := cert.PrivateKey.(*rsa.PrivateKey)
+		if !ok {
+			log.Fatal(fmt.Errorf("failed to cast private key"))
+		}
+
+		secpKey := nodeid.RsaPrivateKeyToSecp256PrivateKey(rsaKey)
+		pk, err := factory.ToPrivateKey(secpKey.Serialize())
 		if err != nil {
 			log.Fatal(err)
 		}
