@@ -7,7 +7,7 @@ HTTP_PARAMS="--http-host=0.0.0.0 --http-allowed-origins=* --http-port=9650"
 STAKING_PARAMS="--staking-tls-key-file=/mnt/cert/tls.key --staking-tls-cert-file=/mnt/cert/tls.crt --staking-port=9651"
 API_NODE_PARAMS="--index-enabled"
 
-BOOTSTRAP_PARAMS=""
+BOOTSTRAP_PARAMS="--api-admin-enabled=true --log-level=debug"
 
 # if [ ! -d "/mnt/data/$NETWORK_ID" ];
 # then 

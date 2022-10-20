@@ -160,7 +160,10 @@ func registerValidator(staker version1.Staker) error {
 	now := time.Now().Add(2 * time.Minute)
 	endTime := now.Add(stakeDur)
 
-	addVaidatorPostData := strings.NewReader(fmt.Sprintf(`{
+	count := 0
+
+	for {
+		addVaidatorPostData := strings.NewReader(fmt.Sprintf(`{
 			"jsonrpc":"2.0",
 			"id"     :1,
 			"method": "platform.addValidator",
@@ -175,17 +178,49 @@ func registerValidator(staker version1.Staker) error {
 				"password": "%s"
 			}
 		}`, staker.NodeID, now.Unix(), endTime.Unix(), staker.Stake, addr, username, password))
-	res, err = http.Post("http://localhost:9650/ext/bc/P", "application/json", addVaidatorPostData)
-	if err != nil {
-		return err
-	}
+		res, err = http.Post("http://localhost:9650/ext/bc/P", "application/json", addVaidatorPostData)
+		if err != nil {
+			return err
+		}
 
-	body, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
+		body, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
 
-	fmt.Println(string(body))
+		fmt.Println(string(body))
+		time.Sleep(2 * time.Second)
+
+		getPendingValidatorsPayload := strings.NewReader(`{
+			"jsonrpc": "2.0",
+			"method": "platform.getPendingValidators",
+			"params": {
+				"subnetID": null,
+				"nodeIDs": []
+			},
+			"id": 1
+		}`)
+
+		res, err = http.Post("http://localhost:9650/ext/bc/P", "application/json", getPendingValidatorsPayload)
+		if err != nil {
+			return err
+		}
+
+		body, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		if strings.Contains(string(body), staker.NodeID.String()) {
+			break
+		}
+		count++
+		if count >= 10 {
+			return fmt.Errorf("could not add %s as a validator, exiting", staker.NodeID)
+		}
+		fmt.Printf("Attempt %d: %s was not added as a validator, trying again...\n", count, staker.NodeID)
+		time.Sleep(1 * time.Second)
+	}
 
 	return nil
 
@@ -597,23 +632,30 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 
 	ingClient := clientset.NetworkingV1().Ingresses(k8sConfig.Namespace)
 	_, foundErr := ingClient.Get(ctx, ingressName, metav1.GetOptions{})
-	if foundErr == nil {
-		_, err := ingClient.Update(ctx, &ingress, metav1.UpdateOptions{
-			FieldManager: FIELD_MANAGER_STRING,
-		})
-		if err != nil {
-			return err
-		}
-	} else { //TODO CHECK FOR ACTUAL NOT FOUND ERROR
+	if k8sErrors.IsNotFound(foundErr) {
+
 		_, err := ingClient.Create(ctx, &ingress, metav1.CreateOptions{
 			FieldManager: FIELD_MANAGER_STRING,
 		})
 		if err != nil {
 			return err
 		}
+
+		return nil
+
+	}
+	if k8sErrors.IsAlreadyExists(foundErr) {
+		_, err := ingClient.Update(ctx, &ingress, metav1.UpdateOptions{
+			FieldManager: FIELD_MANAGER_STRING,
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
-	return nil
+	return foundErr
 }
 
 func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, keepDisks bool) error {

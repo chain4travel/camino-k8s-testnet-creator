@@ -22,7 +22,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-const BOND_AMOUNT = 1e12
+const BOND_AMOUNT = 1e15
 
 func createAllocations(stakers []Staker, config NetworkConfig) []genesis.UnparsedAllocation {
 
@@ -121,7 +121,7 @@ func createStakers(config NetworkConfig) ([]Staker, error) {
 		}
 
 		stakers[i] = Staker{
-			nodeID, *cert, CertBytes, KeyBytes, config.DefaultStake, pk_with_prefix, addr,
+			nodeID, *cert, CertBytes, KeyBytes, BOND_AMOUNT, pk_with_prefix, addr,
 		}
 		bar.Add(1)
 	}
