@@ -7,20 +7,18 @@
 package version1
 
 import (
-	"crypto/rsa"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	_ "embed"
 
+	"chain4travel.com/camktncr/pkg"
 	"github.com/chain4travel/caminogo/genesis"
 	"github.com/chain4travel/caminogo/network/peer"
 	"github.com/chain4travel/caminogo/staking"
 	"github.com/chain4travel/caminogo/utils/crypto"
 	"github.com/chain4travel/caminogo/utils/formatting"
-	"github.com/chain4travel/caminogo/utils/nodeid"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -70,7 +68,7 @@ func createAllocations(stakers []Staker, config NetworkConfig) []genesis.Unparse
 	return allocations
 }
 
-func createStakers(config NetworkConfig) []Staker {
+func createStakers(config NetworkConfig) ([]Staker, error) {
 	stakers := make([]Staker, config.NumStakers)
 
 	bar := progressbar.Default(int64(config.NumStakers))
@@ -80,41 +78,46 @@ func createStakers(config NetworkConfig) []Staker {
 
 		CertBytes, KeyBytes, err := staking.NewCertAndKeyBytes()
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		cert, err := staking.LoadTLSCertFromBytes(KeyBytes, CertBytes)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
-		nodeID, err := peer.CertToID(cert.Leaf)
+		nodeID := peer.CertToID(cert.Leaf)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+
+		// rsaKey, ok := cert.PrivateKey.(*rsa.PrivateKey)
+		// if !ok {
+		// 	log.Fatal(fmt.Errorf("failed to cast private key"))
+		// }
+
+		// secpKey := nodeid.RsaPrivateKeyToSecp256PrivateKey(rsaKey)
+		// pk, err := factory.ToPrivateKey(secpKey.Serialize())
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+
+		pk, err := factory.NewPrivateKey()
 		if err != nil {
-			log.Fatal(err)
-		}
-
-		rsaKey, ok := cert.PrivateKey.(*rsa.PrivateKey)
-		if !ok {
-			log.Fatal(fmt.Errorf("failed to cast private key"))
-		}
-
-		secpKey := nodeid.RsaPrivateKeyToSecp256PrivateKey(rsaKey)
-		pk, err := factory.ToPrivateKey(secpKey.Serialize())
-		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		pk_bytes := pk.Bytes()
 		pk_string, err := formatting.EncodeWithChecksum(formatting.CB58, pk_bytes[:])
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		pk_with_prefix := fmt.Sprintf("PrivateKey-%s", pk_string)
 		addr_bytes := pk.PublicKey().Address()
 		addr, err := formatting.FormatAddress("X", config.NetworkName, addr_bytes[:])
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		stakers[i] = Staker{
@@ -123,12 +126,15 @@ func createStakers(config NetworkConfig) []Staker {
 		bar.Add(1)
 	}
 
-	return stakers
+	return stakers, nil
 }
 
-func BuildNetwork(config NetworkConfig, now uint64) Network {
+func BuildNetwork(config NetworkConfig, now uint64) (*Network, error) {
 
-	stakersRaw := createStakers(config)
+	stakersRaw, err := createStakers(config)
+	if err != nil {
+		return nil, err
+	}
 
 	initialStakersUnparsed := stakersRaw[:config.NumInitialStakers]
 
@@ -161,9 +167,10 @@ func BuildNetwork(config NetworkConfig, now uint64) Network {
 		Message:                    config.NetworkName,
 	}
 
-	return Network{
+	return &Network{
+		pkg.Commit,
 		genesisConfig, stakersRaw,
-	}
+	}, nil
 }
 
 func LoadNetwork(path string) (*Network, error) {

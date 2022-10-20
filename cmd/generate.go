@@ -69,7 +69,10 @@ var generateCmd = &cobra.Command{
 		}
 
 		now := uint64(time.Now().Unix())
-		network := version1.BuildNetwork(networkConfig, now)
+		network, err := version1.BuildNetwork(networkConfig, now)
+		if err != nil {
+			return err
+		}
 
 		networkJson, err := json.MarshalIndent(network, "", "\t")
 		if err != nil {

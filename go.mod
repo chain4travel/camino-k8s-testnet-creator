@@ -3,7 +3,7 @@ module chain4travel.com/camktncr
 go 1.19
 
 require (
-	github.com/chain4travel/caminogo v0.2.1-0.20221018174918-ef295ac7e612
+	github.com/chain4travel/caminogo v0.2.1-0.20220922132546-f0d9bea8e6d5
 	github.com/schollz/progressbar/v3 v3.10.0
 	github.com/spf13/cobra v1.5.0
 	k8s.io/api v0.25.2

@@ -18,14 +18,15 @@ import (
 )
 
 func init() {
-
 	createCmd.Flags().Uint64("api-nodes", 2, "number of api-nodes")
 	createCmd.Flags().Uint64("validators", 5, "number of validators to create (cannot be higher than the initial generated number)")
 	createCmd.Flags().String("validator-ram", "1Gi", "ram of the validators")
 	createCmd.Flags().String("validator-cpu", "500m", "cpu of the validators")
 	createCmd.Flags().String("api-nodes-ram", "1Gi", "ram of the api-nodes")
 	createCmd.Flags().String("api-nodes-cpu", "500m", "cpu of the api-nodes")
-	createCmd.Flags().String("image", "europe-west3-docker.pkg.dev/pwk-c4t-dev/internal-camino-dev/camino-node:unstable-fix-genesis-block-and-node-id-3280676469", "docker image to run the nodes")
+	createCmd.Flags().String("tls-secret-name", "kopernikus.camino.foundation-ingress-tls", "tls secret located in default namespace")
+	createCmd.Flags().String("pull-secret-name", "gcr-image-pull", "pull secret located in default namespace")
+	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
 	createCmd.Flags().String("domain", "kopernikus.camino.foundation", "under which domain to publish the network api nodes")
 
 }
@@ -69,14 +70,27 @@ var createCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		tlsSecretName, err := cmd.Flags().GetString("tls-secret-name")
+		if err != nil {
+			return err
+		}
+
+		pullSecretName, err := cmd.Flags().GetString("pull-secret-name")
+		if err != nil {
+			return err
+		}
+
 		k8sConfig := version1.K8sConfig{
 			K8sPrefix: networkName,
 			Namespace: networkName,
 			Labels: map[string]string{
 				"network": networkName,
 			},
-			Image:  image,
-			Domain: domain,
+			Image:          image,
+			Domain:         domain,
+			TLSSecretName:  tlsSecretName,
+			PullSecretName: pullSecretName,
 			Resources: version1.K8sResources{
 				Api: v1.ResourceList{
 					v1.ResourceCPU:    resource.MustParse(apiCpu),
@@ -109,6 +123,14 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
+		if network.Version == "" {
+			return fmt.Errorf("using old network json, please regenerate")
+		}
+
+		if network.Version != pkg.Commit {
+			return fmt.Errorf("cannot create network with different version, please checkout this commit and use that version to create the network: %s", network.Version)
+		}
+
 		numInitialStakers := len(network.GenesisConfig.InitialStakers)
 
 		if int(numValidators) < numInitialStakers {
@@ -124,7 +146,11 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
-		err = k8s.CopyPullSecret(cmd.Context(), k, k8sConfig)
+		err = k8s.CopySecretFromDefaultNamespace(cmd.Context(), k, k8sConfig, pullSecretName)
+		if err != nil {
+			return err
+		}
+		err = k8s.CopySecretFromDefaultNamespace(cmd.Context(), k, k8sConfig, tlsSecretName)
 		if err != nil {
 			return err
 		}
@@ -164,7 +190,7 @@ var createCmd = &cobra.Command{
 		}
 
 		ingAnnotations := map[string]string{
-			"cert-manager.io/cluster-issuer": "prod-letsencrypt",
+			// "cert-manager.io/cluster-issuer": "prod-letsencrypt",
 		}
 
 		err = k8s.CreateIngress(cmd.Context(), k, k8sConfig, ingAnnotations)

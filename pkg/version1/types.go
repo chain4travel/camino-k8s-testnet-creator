@@ -41,12 +41,14 @@ type K8sResources struct {
 }
 
 type K8sConfig struct {
-	K8sPrefix string
-	Namespace string
-	Domain    string
-	Labels    map[string]string
-	Image     string
-	Resources K8sResources
+	K8sPrefix      string
+	Namespace      string
+	Domain         string
+	Labels         map[string]string
+	Image          string
+	TLSSecretName  string
+	PullSecretName string
+	Resources      K8sResources
 }
 
 func (k K8sConfig) PrefixWith(s string) string {
@@ -75,6 +77,7 @@ type stakerTemplate struct {
 }
 
 type Network struct {
+	Version       string
 	GenesisConfig genesis.UnparsedConfig
 	Stakers       []Staker
 }

@@ -88,7 +88,7 @@ func createStatefulSetWithOptions(ctx context.Context, clientset *kubernetes.Cli
 		}
 	}
 
-	if createdSts.Status.AvailableReplicas != options.Replicas {
+	if createdSts.Status.UpdatedReplicas != options.Replicas || createdSts.Status.AvailableReplicas != options.Replicas {
 		watch, err := stsClient.Watch(ctx, metav1.SingleObject(createdSts.ObjectMeta))
 		if err != nil {
 			return err
@@ -142,7 +142,7 @@ func baseStateFullSet(options stateFullSetOptions) appsv1.StatefulSet {
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{
-							Name: "gcr-image-pull",
+							Name: options.PullSecretName,
 						},
 					},
 					ServiceAccountName: options.PrefixWith("init-container"),
@@ -200,6 +200,13 @@ func buildContainer(options stateFullSetOptions) corev1.Container {
 		Resources: corev1.ResourceRequirements{
 			Requests: options.Requests,
 		},
+		// LivenessProbe: &corev1.Probe{
+		// 	ProbeHandler: corev1.ProbeHandler{
+		// 		Exec: &corev1.ExecAction{
+		// 			Command: ,
+		// 		},
+		// 	},
+		// },
 		Env: []corev1.EnvVar{
 			{
 				Name: "ROOT_NODE_ID",

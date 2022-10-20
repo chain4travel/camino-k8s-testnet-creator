@@ -88,6 +88,7 @@ func RegisterValidators(ctx context.Context, restClient *rest.Config, k8sConfig 
 		} else {
 			break
 		}
+		time.Sleep(5 * time.Second)
 	}
 
 	for _, staker := range stakers {
@@ -366,9 +367,9 @@ func CreateStakerSecrets(ctx context.Context, clientset *kubernetes.Clientset, s
 	return nil
 }
 
-func CopyPullSecret(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig) error {
+func CopySecretFromDefaultNamespace(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, secretName string) error {
 
-	secret, err := clientset.CoreV1().Secrets("kopernikus").Get(ctx, "gcr-image-pull", metav1.GetOptions{})
+	secret, err := clientset.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -588,7 +589,7 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 					Hosts: []string{
 						k8sConfig.Domain,
 					},
-					SecretName: fmt.Sprintf("%s-%s-ingress-tls", k8sConfig.K8sPrefix, k8sConfig.Domain),
+					SecretName: k8sConfig.TLSSecretName,
 				},
 			},
 		},
