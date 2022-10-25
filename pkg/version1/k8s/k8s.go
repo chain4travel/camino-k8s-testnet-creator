@@ -334,7 +334,7 @@ func CreateScriptsConfigMap(ctx context.Context, clientset *kubernetes.Clientset
 		if err != nil {
 			return err
 		}
-		data[stripped] = string(raw)
+		data[stripped] = strings.ReplaceAll(string(raw), "\r", "")
 	}
 
 	configMap := &corev1.ConfigMap{
