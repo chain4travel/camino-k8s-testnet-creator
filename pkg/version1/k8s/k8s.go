@@ -7,25 +7,16 @@
 package k8s
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha1"
 	"embed"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"path"
-	"strings"
 	"time"
 
-	"log"
-
 	"chain4travel.com/camktncr/pkg/version1"
-	"github.com/chain4travel/caminogo/genesis"
+	"github.com/ava-labs/avalanchego/genesis"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -34,241 +25,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	applyv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/transport/spdy"
 
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 const FIELD_MANAGER_STRING = "camktncr-test-net-creator"
-
-func RegisterValidators(ctx context.Context, restClient *rest.Config, k8sConfig version1.K8sConfig, stakers []version1.Staker) error {
-	roundTripper, upgrader, err := spdy.RoundTripperFor(restClient)
-	if err != nil {
-		return err
-	}
-
-	path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/portforward", k8sConfig.Namespace, fmt.Sprintf("%s-root-0", k8sConfig.K8sPrefix))
-	hostIP := strings.TrimLeft(restClient.Host, "htps:/")
-	serverURL := url.URL{Scheme: "https", Path: path, Host: hostIP}
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, &serverURL)
-
-	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
-	out, errOut := new(bytes.Buffer), new(bytes.Buffer)
-
-	forwarder, err := portforward.New(dialer, []string{"9650"}, stopChan, readyChan, out, errOut)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for range readyChan { // Kubernetes will close this channel when it has something to tell us.
-		}
-		if len(errOut.String()) != 0 {
-			panic(errOut.String())
-		} else if len(out.String()) != 0 {
-			fmt.Println(out.String())
-		}
-	}()
-
-	go func() {
-		if err = forwarder.ForwardPorts(); err != nil { // Locks until stopChan is closed.
-			fmt.Println(err)
-		}
-	}()
-	time.Sleep(1 * time.Second)
-	defer close(stopChan)
-
-	for {
-		err := isBootstrapped()
-		if err != nil {
-			log.Println("root has not bootstrapped yet")
-		} else {
-			break
-		}
-		time.Sleep(5 * time.Second)
-	}
-
-	for _, staker := range stakers {
-		err = registerValidator(staker)
-		if err != nil {
-			return err
-		}
-		time.Sleep(5 * time.Second)
-	}
-
-	return nil
-}
-
-func registerValidator(staker version1.Staker) error {
-	day, err := time.ParseDuration("24h")
-	if err != nil {
-		return err
-	}
-
-	stakeDur := day * 30
-	username := staker.PublicAddress
-	sum := sha1.Sum([]byte(username))
-	password := hex.EncodeToString(sum[:])
-	addr := fmt.Sprintf("P-%s", strings.Split(staker.PublicAddress, "-")[1])
-
-	createUserPostData := strings.NewReader(fmt.Sprintf(`{
-			"jsonrpc":"2.0",
-			"id"     :1,
-			"method" :"keystore.createUser",
-			"params" :{
-				"username": "%s",
-				"password": "%s"
-			}
-		}`, username, password))
-	res, err := http.Post("http://localhost:9650/ext/keystore", "application/json", createUserPostData)
-	if err != nil {
-		return err
-	}
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(body))
-
-	importKeyPostData := strings.NewReader(fmt.Sprintf(`{
-			"jsonrpc":"2.0",
-			"id"     :1,
-			"method" :"platform.importKey",
-			"params" :{
-				"username":"%s",
-				"password":"%s",
-				"privateKey":"%s"
-			}
-		}`, username, password, staker.PrivateKey))
-	res, err = http.Post("http://localhost:9650/ext/bc/P", "application/json", importKeyPostData)
-	if err != nil {
-		return err
-	}
-
-	body, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(body))
-
-	now := time.Now().Add(2 * time.Minute)
-	endTime := now.Add(stakeDur)
-
-	count := 0
-
-	for {
-		addVaidatorPostData := strings.NewReader(fmt.Sprintf(`{
-			"jsonrpc":"2.0",
-			"id"     :1,
-			"method": "platform.addValidator",
-			"params": {
-				"nodeID":"NodeID-%s",
-				"startTime": %d,
-				"endTime": %d,
-				"stakeAmount": %d,
-				"rewardAddress": "%s",
-				"delegationFeeRate": 10,
-				"username": "%s",
-				"password": "%s"
-			}
-		}`, staker.NodeID, now.Unix(), endTime.Unix(), staker.Stake, addr, username, password))
-		res, err = http.Post("http://localhost:9650/ext/bc/P", "application/json", addVaidatorPostData)
-		if err != nil {
-			return err
-		}
-
-		body, err = ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(string(body))
-		time.Sleep(2 * time.Second)
-
-		getPendingValidatorsPayload := strings.NewReader(`{
-			"jsonrpc": "2.0",
-			"method": "platform.getPendingValidators",
-			"params": {
-				"subnetID": null,
-				"nodeIDs": []
-			},
-			"id": 1
-		}`)
-
-		res, err = http.Post("http://localhost:9650/ext/bc/P", "application/json", getPendingValidatorsPayload)
-		if err != nil {
-			return err
-		}
-
-		body, err = ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-
-		if strings.Contains(string(body), staker.NodeID.String()) {
-			break
-		}
-		count++
-		if count >= 10 {
-			return fmt.Errorf("could not add %s as a validator, exiting", staker.NodeID)
-		}
-		fmt.Printf("Attempt %d: %s was not added as a validator, trying again...\n", count, staker.NodeID)
-		time.Sleep(1 * time.Second)
-	}
-
-	return nil
-
-}
-
-func isBootstrapped() error {
-	url := "http://localhost:9650/ext/info"
-	method := "POST"
-
-	payload := strings.NewReader(`{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method" :"info.isBootstrapped",
-    "params": {
-        "chain": "P"
-    }
-}`)
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, payload)
-
-	if err != nil {
-		return err
-	}
-	req.Header.Add("Content-Type", "application/json")
-
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	parsed := make(map[string]interface{})
-
-	json.Unmarshal(body, &parsed)
-
-	result := parsed["result"].(map[string]interface{})
-
-	if result["isBootstrapped"] != true {
-		return fmt.Errorf("not bootstrapped yet")
-	}
-
-	return nil
-}
+const DEFAULT_TIMEOUT = 2 * time.Second
 
 func CreateNamespace(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig) error {
 	namespace := corev1.Namespace{
@@ -668,14 +430,14 @@ func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 	err = clientset.AppsV1().StatefulSets(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 		LabelSelector: sel,
 	})
-	if err != nil {
+	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 
 	for _, sts := range []string{"api", "root", "validator"} {
 
 		err = clientset.CoreV1().Services(k8sConfig.Namespace).Delete(ctx, k8sConfig.PrefixWith(sts), *metav1.NewDeleteOptions(0))
-		if err != nil {
+		if err != nil && !k8sErrors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -683,32 +445,32 @@ func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 	err = clientset.CoreV1().ConfigMaps(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 		LabelSelector: sel,
 	})
-	if err != nil {
+	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 	err = clientset.CoreV1().Secrets(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 		LabelSelector: sel,
 	})
-	if err != nil {
+	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 	err = clientset.CoreV1().ServiceAccounts(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 		LabelSelector: sel,
 	})
-	if err != nil {
+	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 
 	err = clientset.RbacV1().RoleBindings(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 		LabelSelector: sel,
 	})
-	if err != nil {
+	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 	err = clientset.RbacV1().Roles(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 		LabelSelector: sel,
 	})
-	if err != nil {
+	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 
@@ -717,7 +479,7 @@ func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 		err = clientset.CoreV1().PersistentVolumeClaims(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 			LabelSelector: sel,
 		})
-		if err != nil {
+		if err != nil && !k8sErrors.IsNotFound(err) {
 			return err
 		}
 	}
