@@ -106,12 +106,8 @@ github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghf
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/cespare/xxhash/v2 v2.1.2 h1:YRXhKfTDauu4ajMg1TPgFO5jnlC2HCbmLXMcTG5cbYE=
 github.com/cespare/xxhash/v2 v2.1.2/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/chain4travel/caminogo v0.2.1-0.20220911133328-db8904c20321 h1:4jgQnA28FSsw4PKdds0SiRviVrnvDHyxRxhgaFQNnwk=
-github.com/chain4travel/caminogo v0.2.1-0.20220911133328-db8904c20321/go.mod h1:phXVVpkhyFSS5fl6hCUMaaPJ5P4NZ5AqcFwROhjJiZ4=
 github.com/chain4travel/caminogo v0.2.1-0.20220922132546-f0d9bea8e6d5 h1:HB2PB0Og7PMbHBZ7PxTskmJtDWLAj4Md2H9KaqYG0AY=
 github.com/chain4travel/caminogo v0.2.1-0.20220922132546-f0d9bea8e6d5/go.mod h1:phXVVpkhyFSS5fl6hCUMaaPJ5P4NZ5AqcFwROhjJiZ4=
-github.com/chain4travel/caminogo v0.2.1-0.20221018174918-ef295ac7e612 h1:yHLB2PWN999eirGLegQyxOY12V1TemDmMQFbeqslpg0=
-github.com/chain4travel/caminogo v0.2.1-0.20221018174918-ef295ac7e612/go.mod h1:phXVVpkhyFSS5fl6hCUMaaPJ5P4NZ5AqcFwROhjJiZ4=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
@@ -582,6 +578,7 @@ golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20201207232520-09787c993a3a/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=

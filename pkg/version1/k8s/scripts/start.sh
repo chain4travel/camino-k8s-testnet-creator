@@ -10,14 +10,14 @@ API_NODE_PARAMS="--index-enabled"
 BOOTSTRAP_PARAMS="--api-admin-enabled=true --log-level=debug"
 
 # if [ ! -d "/mnt/data/$NETWORK_ID" ];
-# then 
+# then
 if [ "${IS_ROOT:-"false"}" = true ] && [ ! -d "/mnt/data/$NETWORK_ID" ];
-then 
+then
     BOOTSTRAP_PARAMS="$BOOTSTRAP_PARAMS --bootstrap-ids= --bootstrap-ips="
-else 
+else
     ROOT_PORT="${NETWORK_NAME^^}_ROOT_SERVICE_PORT_STAKING"
     ROOT_HOST="${NETWORK_NAME^^}_ROOT_SERVICE_HOST"
-    BOOTSTRAP_PARAMS="$BOOTSTRAP_PARAMS --bootstrap-ids=NodeID-$ROOT_NODE_ID --bootstrap-ips=${!ROOT_HOST}:${!ROOT_PORT}"
+    BOOTSTRAP_PARAMS="$BOOTSTRAP_PARAMS --bootstrap-ids=$ROOT_NODE_ID --bootstrap-ips=${!ROOT_HOST}:${!ROOT_PORT}"
 fi
 # fi
 

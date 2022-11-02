@@ -7,12 +7,13 @@
 package cmd
 
 import (
+	"time"
+
 	"chain4travel.com/camktncr/pkg"
 	"chain4travel.com/camktncr/pkg/version1"
 	"chain4travel.com/camktncr/pkg/version1/k8s"
 
 	"github.com/spf13/cobra"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 var destroyCmd = &cobra.Command{
@@ -41,9 +42,11 @@ var destroyCmd = &cobra.Command{
 		}
 
 		err = k8s.DeleteCluster(cmd.Context(), k, k8sConfig, false)
-		if err != nil && !k8sErrors.IsNotFound(err) {
+		if err != nil {
 			return err
 		}
+
+		time.Sleep(20 * time.Second)
 
 		return nil
 	},

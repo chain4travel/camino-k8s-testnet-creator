@@ -11,14 +11,13 @@ import (
 	"fmt"
 
 	"github.com/chain4travel/caminogo/genesis"
-	"github.com/chain4travel/caminogo/ids"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 )
 
 type Staker struct {
-	NodeID        ids.ShortID
+	NodeID        string
 	Cert          tls.Certificate `json:"-"`
 	CertBytes     []byte
 	KeyBytes      []byte

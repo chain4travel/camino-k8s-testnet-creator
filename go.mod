@@ -6,6 +6,7 @@ require (
 	github.com/chain4travel/caminogo v0.2.1-0.20220922132546-f0d9bea8e6d5
 	github.com/schollz/progressbar/v3 v3.10.0
 	github.com/spf13/cobra v1.5.0
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	k8s.io/api v0.25.2
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v0.25.2

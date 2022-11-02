@@ -7,7 +7,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"chain4travel.com/camktncr/pkg"
 	"chain4travel.com/camktncr/pkg/version1"
@@ -28,7 +30,7 @@ func init() {
 	createCmd.Flags().String("pull-secret-name", "gcr-image-pull", "pull secret located in default namespace")
 	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
 	createCmd.Flags().String("domain", "kopernikus.camino.foundation", "under which domain to publish the network api nodes")
-
+	createCmd.Flags().DurationP("timeout", "t", 0, "stop execution after this time (non negative and 0 means no timeout)")
 }
 
 var createCmd = &cobra.Command{
@@ -113,6 +115,15 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
+		timeoutDur, err := cmd.Flags().GetDuration("timeout")
+		if err != nil {
+			return err
+		}
+		ctx := cmd.Context()
+		if timeoutDur > 0 {
+			ctx, _ = context.WithTimeout(ctx, timeoutDur)
+		}
+
 		kRest, k, err := pkg.InitClientSet(kubeconfig)
 		if err != nil {
 			return err
@@ -146,45 +157,49 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
-		err = k8s.CopySecretFromDefaultNamespace(cmd.Context(), k, k8sConfig, pullSecretName)
+		err = k8s.CopySecretFromDefaultNamespace(ctx, k, k8sConfig, pullSecretName)
 		if err != nil {
 			return err
 		}
-		err = k8s.CopySecretFromDefaultNamespace(cmd.Context(), k, k8sConfig, tlsSecretName)
+		err = k8s.CopySecretFromDefaultNamespace(ctx, k, k8sConfig, tlsSecretName)
 		if err != nil {
 			return err
 		}
-		err = k8s.CreateRBAC(cmd.Context(), k, k8sConfig)
-		if err != nil {
-			return err
-		}
-
-		err = k8s.CreateNetworkConfigMap(cmd.Context(), k, network.GenesisConfig, k8sConfig)
+		err = k8s.CreateRBAC(ctx, k, k8sConfig)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.CreateScriptsConfigMap(cmd.Context(), k, k8sConfig)
+		now := time.Now().Unix()
+		genesisConfig := version1.BuildGenesisConfig(network.GenesisConfig.Allocations, uint64(now), network.Stakers[:numValidators], networkName)
+
+		// err = k8s.CreateNetworkConfigMap(ctx, k, network.GenesisConfig, k8sConfig)
+		err = k8s.CreateNetworkConfigMap(ctx, k, genesisConfig, k8sConfig)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.CreateStakerSecrets(cmd.Context(), k, network.Stakers, k8sConfig)
+		err = k8s.CreateScriptsConfigMap(ctx, k, k8sConfig)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.CreateRootNode(cmd.Context(), k, k8sConfig)
+		err = k8s.CreateStakerSecrets(ctx, k, network.Stakers, k8sConfig)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.CreateValidators(cmd.Context(), k, k8sConfig, int32(numValidators)-1)
+		err = k8s.CreateRootNode(ctx, k, k8sConfig)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.CreateApiNodes(cmd.Context(), k, k8sConfig, int32(numApiNodes))
+		err = k8s.CreateValidators(ctx, k, k8sConfig, int32(numValidators)-1)
+		if err != nil {
+			return err
+		}
+
+		err = k8s.CreateApiNodes(ctx, k, k8sConfig, int32(numApiNodes))
 		if err != nil {
 			return err
 		}
@@ -193,12 +208,12 @@ var createCmd = &cobra.Command{
 			// "cert-manager.io/cluster-issuer": "prod-letsencrypt",
 		}
 
-		err = k8s.CreateIngress(cmd.Context(), k, k8sConfig, ingAnnotations)
+		err = k8s.CreateIngress(ctx, k, k8sConfig, ingAnnotations)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.RegisterValidators(cmd.Context(), kRest, k8sConfig, network.Stakers[numInitialStakers:numValidators])
+		err = k8s.RegisterValidators(ctx, kRest, k8sConfig, network.Stakers[numInitialStakers:numValidators], true)
 		if err != nil {
 			return err
 		}
