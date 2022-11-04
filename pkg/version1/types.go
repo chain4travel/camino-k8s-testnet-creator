@@ -13,8 +13,7 @@ import (
 	"github.com/ava-labs/avalanchego/genesis"
 	"github.com/ava-labs/avalanchego/ids"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Staker struct {
@@ -41,30 +40,38 @@ type K8sResources struct {
 }
 
 type K8sConfig struct {
-	K8sPrefix      string
-	Namespace      string
-	Domain         string
-	Labels         map[string]string
-	Image          string
-	TLSSecretName  string
-	PullSecretName string
-	Resources      K8sResources
+	K8sPrefix        string
+	Namespace        string
+	Domain           string
+	Labels           map[string]string
+	Image            string
+	TLSSecretName    string
+	PullSecretName   string
+	Resources        K8sResources
+	EnableMonitoring bool
 }
 
 func (k K8sConfig) PrefixWith(s string) string {
 	return fmt.Sprintf("%s-%s", k.K8sPrefix, s)
 }
 
-func (k K8sConfig) Selector() (string, error) {
-	sel := labels.NewSelector()
+func (k K8sConfig) Selector() *metav1.LabelSelector {
+
+	sel := &metav1.LabelSelector{}
+
 	for k, v := range k.Labels {
-		req, err := labels.NewRequirement(k, selection.Equals, []string{v})
-		if err != nil {
-			return "", err
-		}
-		sel.Add(*req)
+		sel = metav1.AddLabelToSelector(sel, k, v)
 	}
-	return sel.String(), nil
+
+	// sel := labels.NewSelector()
+	// for k, v := range k.Labels {
+	// 	req, err := labels.NewRequirement(k, selection.Equals, []string{v})
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	sel.Add(*req)
+	// }
+	return sel
 }
 
 type stakerTemplate struct {

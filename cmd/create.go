@@ -31,6 +31,7 @@ func init() {
 	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
 	createCmd.Flags().String("domain", "kopernikus.camino.foundation", "under which domain to publish the network api nodes")
 	createCmd.Flags().DurationP("timeout", "t", 0, "stop execution after this time (non negative and 0 means no timeout)")
+	createCmd.Flags().Bool("enable-monitoring", true, "toggle the creation of service monitors")
 }
 
 var createCmd = &cobra.Command{
@@ -83,6 +84,11 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
+		enableMonitoring, err := cmd.Flags().GetBool("enable-monitoring")
+		if err != nil {
+			return err
+		}
+
 		k8sConfig := version1.K8sConfig{
 			K8sPrefix: networkName,
 			Namespace: networkName,
@@ -103,6 +109,7 @@ var createCmd = &cobra.Command{
 					v1.ResourceMemory: resource.MustParse(validatorRam),
 				},
 			},
+			EnableMonitoring: enableMonitoring,
 		}
 
 		numValidators, err := cmd.Flags().GetUint64("validators")
@@ -189,17 +196,17 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
-		err = k8s.CreateRootNode(ctx, k, k8sConfig)
+		err = k8s.CreateRootNode(ctx, kRest, k, k8sConfig)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.CreateValidators(ctx, k, k8sConfig, int32(numValidators)-1)
+		err = k8s.CreateValidators(ctx, kRest, k, k8sConfig, int32(numValidators)-1)
 		if err != nil {
 			return err
 		}
 
-		err = k8s.CreateApiNodes(ctx, k, k8sConfig, int32(numApiNodes))
+		err = k8s.CreateApiNodes(ctx, kRest, k, k8sConfig, int32(numApiNodes))
 		if err != nil {
 			return err
 		}

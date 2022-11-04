@@ -9,6 +9,7 @@ package k8s
 import (
 	"chain4travel.com/camktncr/pkg/version1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -32,4 +33,13 @@ func (s stateFullSetOptions) Labels() map[string]string {
 	labels := s.K8sConfig.Labels
 	labels["type"] = s.Type
 	return labels
+}
+
+func (s stateFullSetOptions) Selector() *metav1.LabelSelector {
+	sel := &metav1.LabelSelector{}
+
+	for k, v := range s.Labels() {
+		sel = metav1.AddLabelToSelector(sel, k, v)
+	}
+	return sel
 }

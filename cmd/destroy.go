@@ -28,7 +28,7 @@ var destroyCmd = &cobra.Command{
 			return err
 		}
 
-		_, k, err := pkg.InitClientSet(kubeconfig)
+		kRest, k, err := pkg.InitClientSet(kubeconfig)
 		if err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ var destroyCmd = &cobra.Command{
 			},
 		}
 
-		err = k8s.DeleteCluster(cmd.Context(), k, k8sConfig, false)
+		err = k8s.DeleteCluster(cmd.Context(), kRest, k, k8sConfig, false)
 		if err != nil {
 			return err
 		}

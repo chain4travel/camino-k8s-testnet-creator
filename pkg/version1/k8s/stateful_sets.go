@@ -12,12 +12,15 @@ import (
 	"strconv"
 
 	"chain4travel.com/camktncr/pkg/version1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	promVersioned "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 func buildService(options stateFullSetOptions) corev1.Service {
@@ -45,7 +48,7 @@ func buildService(options stateFullSetOptions) corev1.Service {
 	}
 }
 
-func createStatefulSetWithOptions(ctx context.Context, clientset *kubernetes.Clientset, options stateFullSetOptions) error {
+func createStatefulSetWithOptions(ctx context.Context, restClient *rest.Config, clientset *kubernetes.Clientset, options stateFullSetOptions) error {
 	svc := buildService(options)
 
 	serviceClient := clientset.CoreV1().Services(options.Namespace)
@@ -109,8 +112,14 @@ func createStatefulSetWithOptions(ctx context.Context, clientset *kubernetes.Cli
 
 	}
 
-	return nil
+	if options.EnableMonitoring {
+		err := createServiceMonitor(ctx, restClient, options)
+		if err != nil {
+			return err
+		}
+	}
 
+	return nil
 }
 
 func baseStateFullSet(options stateFullSetOptions) appsv1.StatefulSet {
@@ -333,4 +342,43 @@ func validatorInitContainer(options stateFullSetOptions) corev1.Container {
 			ReadOnly:  false,
 		}),
 	}
+}
+
+func createServiceMonitor(ctx context.Context, restClient *rest.Config, options stateFullSetOptions) error {
+	promClientSet, err := promVersioned.NewForConfig(restClient)
+	if err != nil {
+		return err
+	}
+
+	sm := &promv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   options.Name(),
+			Labels: options.Labels(),
+		},
+		Spec: promv1.ServiceMonitorSpec{
+			JobLabel: options.Name(),
+			Selector: *options.Selector(),
+			Endpoints: []promv1.Endpoint{
+				{
+					Path:     "/ext/metrics",
+					Port:     "rpc",
+					Interval: promv1.Duration("5s"),
+				},
+			},
+			TargetLabels: []string{options.Name()},
+		},
+	}
+
+	client := promClientSet.MonitoringV1().ServiceMonitors(options.Namespace)
+
+	_, err = client.Get(ctx, sm.Name, metav1.GetOptions{})
+	if err == nil {
+		err := client.Delete(ctx, sm.Name, *metav1.NewDeleteOptions(0))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = client.Create(ctx, sm, metav1.CreateOptions{})
+	return err
 }

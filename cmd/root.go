@@ -7,7 +7,7 @@
 package cmd
 
 import (
-	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -34,6 +34,6 @@ func init() {
 
 func Run() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		os.Exit(1)
 	}
 }

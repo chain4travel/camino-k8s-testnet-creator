@@ -17,6 +17,7 @@ import (
 
 	"chain4travel.com/camktncr/pkg/version1"
 	"github.com/ava-labs/avalanchego/genesis"
+	promVersioned "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -25,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	applyv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
@@ -290,7 +292,7 @@ func CreateRBAC(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig 
 
 }
 
-func CreateApiNodes(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, numberOfNodes int32) error {
+func CreateApiNodes(ctx context.Context, restClient *rest.Config, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, numberOfNodes int32) error {
 
 	options := stateFullSetOptions{
 		K8sConfig:   k8sConfig,
@@ -301,10 +303,10 @@ func CreateApiNodes(ctx context.Context, clientset *kubernetes.Clientset, k8sCon
 		Requests:    k8sConfig.Resources.Api,
 	}
 
-	return createStatefulSetWithOptions(ctx, clientset, options)
+	return createStatefulSetWithOptions(ctx, restClient, clientset, options)
 }
 
-func CreateRootNode(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig) error {
+func CreateRootNode(ctx context.Context, restClient *rest.Config, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig) error {
 
 	options := stateFullSetOptions{
 		K8sConfig:   k8sConfig,
@@ -315,10 +317,10 @@ func CreateRootNode(ctx context.Context, clientset *kubernetes.Clientset, k8sCon
 		Requests:    k8sConfig.Resources.Validator,
 	}
 
-	return createStatefulSetWithOptions(ctx, clientset, options)
+	return createStatefulSetWithOptions(ctx, restClient, clientset, options)
 }
 
-func CreateValidators(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, numberOfNodes int32) error {
+func CreateValidators(ctx context.Context, restClient *rest.Config, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, numberOfNodes int32) error {
 
 	options := stateFullSetOptions{
 		K8sConfig:   k8sConfig,
@@ -329,7 +331,7 @@ func CreateValidators(ctx context.Context, clientset *kubernetes.Clientset, k8sC
 		Requests:    k8sConfig.Resources.Validator,
 	}
 
-	return createStatefulSetWithOptions(ctx, clientset, options)
+	return createStatefulSetWithOptions(ctx, restClient, clientset, options)
 }
 
 func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, annotations map[string]string) error {
@@ -420,15 +422,16 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 	return foundErr
 }
 
-func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, keepDisks bool) error {
-
-	sel, err := k8sConfig.Selector()
+func DeleteCluster(ctx context.Context, restClient *rest.Config, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, keepDisks bool) error {
+	selector, err := metav1.LabelSelectorAsSelector(k8sConfig.Selector())
 	if err != nil {
 		return err
 	}
 
+	selectorString := selector.String()
+
 	err = clientset.AppsV1().StatefulSets(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
-		LabelSelector: sel,
+		LabelSelector: selectorString,
 	})
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
@@ -443,32 +446,32 @@ func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 	}
 
 	err = clientset.CoreV1().ConfigMaps(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
-		LabelSelector: sel,
+		LabelSelector: selectorString,
 	})
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 	err = clientset.CoreV1().Secrets(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
-		LabelSelector: sel,
+		LabelSelector: selectorString,
 	})
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 	err = clientset.CoreV1().ServiceAccounts(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
-		LabelSelector: sel,
+		LabelSelector: selectorString,
 	})
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 
 	err = clientset.RbacV1().RoleBindings(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
-		LabelSelector: sel,
+		LabelSelector: selectorString,
 	})
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 	err = clientset.RbacV1().Roles(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
-		LabelSelector: sel,
+		LabelSelector: selectorString,
 	})
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
@@ -477,11 +480,23 @@ func DeleteCluster(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 	if !keepDisks {
 
 		err = clientset.CoreV1().PersistentVolumeClaims(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
-			LabelSelector: sel,
+			LabelSelector: selectorString,
 		})
 		if err != nil && !k8sErrors.IsNotFound(err) {
 			return err
 		}
+	}
+
+	promClientSet, err := promVersioned.NewForConfig(restClient)
+	if err != nil {
+		return err
+	}
+
+	err = promClientSet.MonitoringV1().ServiceMonitors(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: selectorString,
+	})
+	if err != nil && !k8sErrors.IsNotFound(err) {
+		return err
 	}
 
 	return nil
