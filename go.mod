@@ -2,7 +2,7 @@ module chain4travel.com/camktncr
 
 go 1.19
 
-replace github.com/ava-labs/avalanchego => ./_vendor/caminogo
+replace github.com/ava-labs/avalanchego => ./caminogo
 
 require (
 	github.com/ava-labs/avalanchego v1.9.1-0.20221020192610-3761bc705fbf
@@ -17,7 +17,10 @@ require (
 )
 
 require (
+	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/rs/cors v1.7.0 // indirect
 	k8s.io/apiextensions-apiserver v0.25.0 // indirect
 	sigs.k8s.io/controller-runtime v0.12.3 // indirect
 )
