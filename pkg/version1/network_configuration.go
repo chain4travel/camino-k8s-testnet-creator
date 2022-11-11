@@ -21,10 +21,12 @@ import (
 	"github.com/ava-labs/avalanchego/utils/cb58"
 	"github.com/ava-labs/avalanchego/utils/crypto"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
+	"github.com/ethereum/go-ethereum/common"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/schollz/progressbar/v3"
 )
 
-const BOND_AMOUNT = 1e15
+const BOND_AMOUNT = uint64(1e15)
 
 func createAllocations(stakers []Staker, config NetworkConfig) []genesis.UnparsedAllocation {
 
@@ -33,7 +35,7 @@ func createAllocations(stakers []Staker, config NetworkConfig) []genesis.Unparse
 		allocations = append(allocations, genesis.UnparsedAllocation{
 			ETHAddr:       "0x0000000000000000000000000000000000000000",
 			AVAXAddr:      stakers[i].PublicAddress,
-			InitialAmount: BOND_AMOUNT,
+			InitialAmount: BOND_AMOUNT + config.DefaultStake,
 			UnlockSchedule: []genesis.LockedAmount{
 				{
 					Amount:   BOND_AMOUNT,
@@ -122,13 +124,20 @@ func createStakers(config NetworkConfig) ([]Staker, error) {
 			return nil, err
 		}
 
+		eth_addr := PublicKeyToEthAddress(pk.PublicKey().(*crypto.PublicKeySECP256K1R))
+
 		stakers[i] = Staker{
-			nodeID, *cert, CertBytes, KeyBytes, BOND_AMOUNT, pk_with_prefix, addr,
+			nodeID, *cert, CertBytes, KeyBytes, BOND_AMOUNT, pk_with_prefix, addr, eth_addr.String(),
 		}
 		bar.Add(1)
 	}
 
 	return stakers, nil
+}
+
+// PublicKeyToEthAddress returns the ethereum address derived from [pubKey]
+func PublicKeyToEthAddress(pubKey *crypto.PublicKeySECP256K1R) common.Address {
+	return ethcrypto.PubkeyToAddress(*(pubKey.ToECDSA()))
 }
 
 func BuildNetwork(config NetworkConfig, now uint64) (*Network, error) {

@@ -5,7 +5,8 @@ go 1.19
 replace github.com/ava-labs/avalanchego => ./_vendor/caminogo
 
 require (
-	github.com/ava-labs/avalanchego v1.7.18
+	github.com/ava-labs/avalanchego v1.9.1-0.20221020192610-3761bc705fbf
+	github.com/ethereum/go-ethereum v1.10.25
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.60.1
 	github.com/schollz/progressbar/v3 v3.10.0
 	github.com/spf13/cobra v1.5.0
@@ -16,6 +17,7 @@ require (
 )
 
 require (
+	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	k8s.io/apiextensions-apiserver v0.25.0 // indirect
 	sigs.k8s.io/controller-runtime v0.12.3 // indirect
 )
@@ -55,7 +57,7 @@ require (
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.3.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect

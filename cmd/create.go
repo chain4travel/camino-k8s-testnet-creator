@@ -29,9 +29,10 @@ func init() {
 	createCmd.Flags().String("tls-secret-name", "kopernikus.camino.foundation-ingress-tls", "tls secret located in default namespace")
 	createCmd.Flags().String("pull-secret-name", "gcr-image-pull", "pull secret located in default namespace")
 	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
-	createCmd.Flags().String("domain", "kopernikus.camino.foundation", "under which domain to publish the network api nodes")
+	createCmd.Flags().String("domain", "camino.network", "under which domain to publish the network api nodes")
 	createCmd.Flags().DurationP("timeout", "t", 0, "stop execution after this time (non negative and 0 means no timeout)")
 	createCmd.Flags().Bool("enable-monitoring", true, "toggle the creation of service monitors")
+	createCmd.Flags().BoolP("ignore-version-check", "c", false, "toggle the creation of service monitors")
 }
 
 var createCmd = &cobra.Command{
@@ -141,12 +142,21 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
-		if network.Version == "" {
-			return fmt.Errorf("using old network json, please regenerate")
+		ignoreVersion, err := cmd.Flags().GetBool("ignore-version-check")
+		if err != nil {
+			return err
 		}
 
-		if network.Version != pkg.Commit {
-			return fmt.Errorf("cannot create network with different version, please checkout this commit and use that version to create the network: %s", network.Version)
+		if !ignoreVersion {
+
+			if network.Version == "" {
+				return fmt.Errorf("using old network json, please regenerate")
+			}
+
+			if network.Version != pkg.Commit {
+				return fmt.Errorf("cannot create network with different version, please checkout this commit and use that version to create the network: %s", network.Version)
+			}
+
 		}
 
 		numInitialStakers := len(network.GenesisConfig.InitialStakers)
@@ -212,7 +222,7 @@ var createCmd = &cobra.Command{
 		}
 
 		ingAnnotations := map[string]string{
-			// "cert-manager.io/cluster-issuer": "prod-letsencrypt",
+			"cert-manager.io/cluster-issuer": "prod-letsencrypt",
 		}
 
 		err = k8s.CreateIngress(ctx, k, k8sConfig, ingAnnotations)

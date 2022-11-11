@@ -350,16 +350,16 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 			IngressClassName: &nginx,
 			Rules: []networkingv1.IngressRule{
 				{
-					Host: k8sConfig.Domain,
+					Host: fmt.Sprintf("%s.%s", k8sConfig.Namespace, k8sConfig.Domain),
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
 								{
-									Path:     fmt.Sprintf("/%s(/|$)(.*)", k8sConfig.K8sPrefix),
+									Path:     "/static(/|$)(.*)",
 									PathType: &pathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: k8sConfig.PrefixWith("api"),
+											Name: k8sConfig.PrefixWith("root"),
 											Port: networkingv1.ServiceBackendPort{
 												Name: "rpc",
 											},
@@ -367,11 +367,11 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 									},
 								},
 								{
-									Path:     fmt.Sprintf("/%s/static(/|$)(.*)", k8sConfig.K8sPrefix),
+									Path:     "/",
 									PathType: &pathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: k8sConfig.PrefixWith("root"),
+											Name: k8sConfig.PrefixWith("api"),
 											Port: networkingv1.ServiceBackendPort{
 												Name: "rpc",
 											},
@@ -388,7 +388,7 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 					Hosts: []string{
 						k8sConfig.Domain,
 					},
-					SecretName: k8sConfig.TLSSecretName,
+					SecretName: k8sConfig.PrefixWith("tls-secret"),
 				},
 			},
 		},
@@ -396,30 +396,19 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 
 	ingClient := clientset.NetworkingV1().Ingresses(k8sConfig.Namespace)
 	_, foundErr := ingClient.Get(ctx, ingressName, metav1.GetOptions{})
-	if k8sErrors.IsNotFound(foundErr) {
-
-		_, err := ingClient.Create(ctx, &ingress, metav1.CreateOptions{
-			FieldManager: FIELD_MANAGER_STRING,
-		})
+	if foundErr == nil {
+		err := ingClient.Delete(ctx, ingressName, *metav1.NewDeleteOptions(0))
 		if err != nil {
 			return err
 		}
 
-		return nil
-
 	}
-	if k8sErrors.IsAlreadyExists(foundErr) {
-		_, err := ingClient.Update(ctx, &ingress, metav1.UpdateOptions{
-			FieldManager: FIELD_MANAGER_STRING,
-		})
-		if err != nil {
-			return err
-		}
+	_, err := ingClient.Create(ctx, &ingress, metav1.CreateOptions{
+		FieldManager: FIELD_MANAGER_STRING,
+	})
 
-		return nil
-	}
+	return err
 
-	return foundErr
 }
 
 func DeleteCluster(ctx context.Context, restClient *rest.Config, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, keepDisks bool) error {
@@ -446,6 +435,12 @@ func DeleteCluster(ctx context.Context, restClient *rest.Config, clientset *kube
 	}
 
 	err = clientset.CoreV1().ConfigMaps(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
+		LabelSelector: selectorString,
+	})
+	if err != nil && !k8sErrors.IsNotFound(err) {
+		return err
+	}
+	err = clientset.NetworkingV1().Ingresses(k8sConfig.Namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{
 		LabelSelector: selectorString,
 	})
 	if err != nil && !k8sErrors.IsNotFound(err) {

@@ -24,6 +24,7 @@ type Staker struct {
 	Stake         uint64
 	PrivateKey    string
 	PublicAddress string
+	CChainAddress string
 }
 
 type NetworkConfig struct {
