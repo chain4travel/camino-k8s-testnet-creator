@@ -337,15 +337,62 @@ func CreateValidators(ctx context.Context, restClient *rest.Config, clientset *k
 
 func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConfig version1.K8sConfig, annotations map[string]string) error {
 	pathType := networkingv1.PathTypePrefix
+	static_annotations := make(map[string]string)
+	for k, v := range annotations {
+		static_annotations[k] = v
+	}
+	static_annotations["nginx.ingress.kubernetes.io/rewrite-target"] = "/$2"
 
-	annotations["nginx.ingress.kubernetes.io/rewrite-target"] = "/$2"
-	ingressName := k8sConfig.PrefixWith("ingress")
 	nginx := "nginx"
 	ingress := networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        ingressName,
+			Name:        k8sConfig.PrefixWith("ingress"),
 			Namespace:   k8sConfig.Namespace,
 			Annotations: annotations,
+			Labels:      k8sConfig.Labels,
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: &nginx,
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: fmt.Sprintf("%s.%s", k8sConfig.Namespace, k8sConfig.Domain),
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathType,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: k8sConfig.PrefixWith("api"),
+											Port: networkingv1.ServiceBackendPort{
+												Name: "rpc",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			TLS: []networkingv1.IngressTLS{
+				{
+					Hosts: []string{
+						k8sConfig.Namespace + "." + k8sConfig.Domain,
+					},
+					SecretName: k8sConfig.PrefixWith("tls-secret"),
+				},
+			},
+		},
+	}
+
+	static_ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        k8sConfig.PrefixWith("ingress-static"),
+			Namespace:   k8sConfig.Namespace,
+			Annotations: static_annotations,
+			Labels:      k8sConfig.Labels,
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: &nginx,
@@ -367,18 +414,18 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 										},
 									},
 								},
-								{
-									Path:     "/",
-									PathType: &pathType,
-									Backend: networkingv1.IngressBackend{
-										Service: &networkingv1.IngressServiceBackend{
-											Name: k8sConfig.PrefixWith("api"),
-											Port: networkingv1.ServiceBackendPort{
-												Name: "rpc",
-											},
-										},
-									},
-								},
+								// {
+								// 	Path:     "/",
+								// 	PathType: &pathType,
+								// 	Backend: networkingv1.IngressBackend{
+								// 		Service: &networkingv1.IngressServiceBackend{
+								// 			Name: k8sConfig.PrefixWith("api"),
+								// 			Port: networkingv1.ServiceBackendPort{
+								// 				Name: "rpc",
+								// 			},
+								// 		},
+								// 	},
+								// },
 							},
 						},
 					},
@@ -387,7 +434,7 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 			TLS: []networkingv1.IngressTLS{
 				{
 					Hosts: []string{
-						k8sConfig.Domain,
+						k8sConfig.Namespace + "." + k8sConfig.Domain,
 					},
 					SecretName: k8sConfig.PrefixWith("tls-secret"),
 				},
@@ -396,19 +443,26 @@ func CreateIngress(ctx context.Context, clientset *kubernetes.Clientset, k8sConf
 	}
 
 	ingClient := clientset.NetworkingV1().Ingresses(k8sConfig.Namespace)
-	_, foundErr := ingClient.Get(ctx, ingressName, metav1.GetOptions{})
-	if foundErr == nil {
-		err := ingClient.Delete(ctx, ingressName, *metav1.NewDeleteOptions(0))
+
+	for _, ing := range []networkingv1.Ingress{static_ingress, ingress} {
+
+		_, foundErr := ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
+		if foundErr == nil {
+			err := ingClient.Delete(ctx, ing.Name, *metav1.NewDeleteOptions(0))
+			if err != nil {
+				return err
+			}
+
+		}
+		_, err := ingClient.Create(ctx, &ing, metav1.CreateOptions{
+			FieldManager: FIELD_MANAGER_STRING,
+		})
 		if err != nil {
 			return err
 		}
 
 	}
-	_, err := ingClient.Create(ctx, &ingress, metav1.CreateOptions{
-		FieldManager: FIELD_MANAGER_STRING,
-	})
-
-	return err
+	return nil
 
 }
 
