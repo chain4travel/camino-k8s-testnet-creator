@@ -62,8 +62,8 @@ var generateCmd = &cobra.Command{
 
 		networkConfig := version1.NetworkConfig{
 			NumStakers:        numStakers,
-			NetworkID:         12345,
-			NetworkName:       "custom",
+			NetworkID:         1002,
+			NetworkName:       "kopernikus",
 			DefaultStake:      defaultStake * DENOMINATION,
 			NumInitialStakers: numInitialStakers,
 		}

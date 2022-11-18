@@ -28,7 +28,7 @@ func init() {
 	createCmd.Flags().String("api-nodes-cpu", "500m", "cpu of the api-nodes")
 	createCmd.Flags().String("tls-secret-name", "kopernikus.camino.foundation-ingress-tls", "tls secret located in default namespace")
 	createCmd.Flags().String("pull-secret-name", "gcr-image-pull", "pull secret located in default namespace")
-	createCmd.Flags().String("image", "c4tplatform/camino-node:v0.2.1-rc2", "docker image to run the nodes")
+	createCmd.Flags().String("image", "europe-west3-docker.pkg.dev/pwk-c4t-dev/internal-camino-dev/camino-node:tiedemann-64de0a0003bfab988da62850eef37ef01f82fdad-1668765791", "docker image to run the nodes")
 	createCmd.Flags().String("domain", "camino.network", "under which domain to publish the network api nodes")
 	createCmd.Flags().DurationP("timeout", "t", 0, "stop execution after this time (non negative and 0 means no timeout)")
 	createCmd.Flags().Bool("enable-monitoring", true, "toggle the creation of service monitors")
